@@ -1,0 +1,43 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="RESTFUL_API" Id="{f476f757-ca2c-4df2-9470-6a492022d4f9}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM RESTFUL_API
+VAR
+    bPostPushover : BOOL;
+    fbHttpClientPushover        : FB_IotHttpClient :=(sHostName:='api.pushover.net',
+                                     bKeepAlive:=TRUE, tConnectionTimeout:=T#10S);
+    fbHttpPostPushover            : FB_Pushover;
+	sMyToken               		   : STRING(30) := 'azggdmmagry5dgeskpoj2m8tgrk4w2';
+	sMyUser				 		   : STRING(30) := 'uaeadvuczqtdh4dftqornb8i5cn79e';
+	sMyMessage			 		   : STRING(180);
+	sMyDevice				 	   : STRING(20) ;
+	sMyTitle				       : STRING(20);
+	
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[//init client parameters at startup
+IF NOT fbHttpClientPushover.bConfigured THEN
+    fbHttpClientPushover.nHostPort:= 80;
+    fbHttpClientPushover.stTLS.bNoServerCertCheck:= FALSE;
+END_IF
+
+IF fbHttpClientPushover.bConfigured THEN
+    fbHttpPostPushover(bSend:=bPostPushover, fbClient:=fbHttpClientPushover, sToken := sMyToken, sUser := sMyUser, sMessage :=sMyMessage, sDevice := sMyDevice, sTitle:= sMyTitle, iPriority := -1 );
+END_IF
+
+fbHttpClientPushover.Execute();
+
+
+]]></ST>
+    </Implementation>
+    <LineIds Name="RESTFUL_API">
+      <LineId Id="259" Count="8" />
+      <LineId Id="283" Count="0" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="290" Count="0" />
+      <LineId Id="285" Count="0" />
+      <LineId Id="284" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

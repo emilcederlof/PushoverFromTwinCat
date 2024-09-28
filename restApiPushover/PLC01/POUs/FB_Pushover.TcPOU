@@ -1,0 +1,140 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.13">
+  <POU Name="FB_Pushover" Id="{31b5f6f1-ac80-462a-b777-5133763b4c37}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Pushover
+VAR_INPUT
+    bSend                : BOOL;
+    sToken               : STRING(30);
+	sUser				 : STRING(30);
+	sMessage			 : STRING(180);
+	sDevice				 : STRING(20);
+	sTitle				 : STRING(20);
+	iPriority			 : DINT;
+END_VAR
+VAR_IN_OUT
+    fbClient             : FB_IotHttpClient;
+END_VAR
+VAR_OUTPUT
+    bBusy                : BOOL;
+    bError               : BOOL;
+END_VAR
+VAR
+    fbRequest            : FB_IotHttpRequest;
+    fbJson               : FB_JsonDomParser;
+    fbJsonWriter         : FB_JsonSaxWriter;
+    nState               : UDINT;
+    RisingEdge           : R_TRIG;
+    
+    bGetContentResult    : BOOL;
+    sContent             : STRING(511);
+    sSend                : STRING(511);
+    
+    bGetJsonResult       : BOOL;
+    jsonDoc              : SJsonValue;
+    jsonVal              : SJsonValue;
+    sResultValue         : STRING;
+    
+    nReqCount            : UDINT;    
+    nResCount            : UDINT;
+    nValidResCount       : UDINT;
+    nErrCount            : UDINT;
+    
+    fbTimer              : TON;
+    bLightOn             : BOOL;
+	iResponseStatus		 : DINT;
+END_VAR
+
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[RisingEdge(CLK:= bSend );
+CASE nState OF
+0:    
+        fbJsonWriter.StartObject();
+		fbJsonWriter.AddKeyString('token',sToken );
+        fbJsonWriter.AddKeyString('user',sUser);
+		IF LEN(sTitle) <> 0 THEN
+		fbJsonWriter.AddKeyString('title', sTitle);
+		END_IF
+		IF LEN(sDevice) <> 0 THEN
+		fbJsonWriter.AddKeyString('device', sDevice);	
+		END_IF
+		fbJsonWriter.AddKeyNumber('priority', iPriority);
+        fbJsonWriter.AddKeyString('message', sMessage);
+        fbJsonWriter.EndObject();
+        sSend:=fbJsonWriter.GetDocument();
+        fbJsonWriter.ResetDocument();	
+		fbRequest.sContentType := 'application/json';
+
+    IF RisingEdge.Q THEN 
+
+		IF fbRequest.SendRequest(sUri:='https://api.pushover.net/1/messages.json', fbClient:=fbClient, eRequestType:=ETcIotHttpRequestType.HTTP_POST, 
+            pContent:=ADR(sSend), nContentSize:=LEN2(ADR(sSend)), 0) THEN                
+            nState:= 1;
+            nReqCount:= nReqCount+1;
+            bBusy:= TRUE;
+            bError:= FALSE;
+        END_IF  
+	END_IF
+1:
+    IF NOT fbRequest.bBusy THEN
+        bError:= TRUE;
+        IF NOT fbRequest.bError THEN                 
+            bGetContentResult:= fbRequest.GetContent(pContent:= ADR(sContent), nContentSize:= SIZEOF(sContent), bSetNullTermination:= TRUE);
+            IF fbRequest.nStatusCode >= 200 AND fbRequest.nStatusCode < 300 THEN
+                bGetJsonResult:= FALSE;
+                jsonDoc:= fbRequest.GetJsonDomContent(fbJson);
+                IF jsonDoc <> 0 THEN
+                    IF fbJson.HasMember(jsonDoc, 'status') THEN
+                        jsonVal:= fbJson.FindMember(jsonDoc, 'status');
+                        iResponseStatus := fbJson.GetInt(jsonVal);
+                        IF iResponseStatus = 1 THEN
+                            nValidResCount:= nValidResCount+1;
+                            bError:= FALSE;
+                        END_IF
+                    END_IF		
+
+					; // do something with status response
+                    //nValidResCount:= nValidResCount+1;
+                    //bError:= FALSE;    
+                END_IF                            
+                nResCount:= nResCount+1;            
+            END_IF
+        END_IF
+        nState:= 0;
+        bBusy:= FALSE;
+        IF bError THEN
+            nErrCount:= nErrCount+1;
+        END_IF
+    END_IF      
+END_CASE]]></ST>
+    </Implementation>
+    <LineIds Name="FB_Pushover">
+      <LineId Id="45" Count="0" />
+      <LineId Id="47" Count="2" />
+      <LineId Id="182" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="306" Count="0" />
+      <LineId Id="305" Count="0" />
+      <LineId Id="307" Count="3" />
+      <LineId Id="312" Count="0" />
+      <LineId Id="56" Count="0" />
+      <LineId Id="58" Count="2" />
+      <LineId Id="275" Count="0" />
+      <LineId Id="278" Count="0" />
+      <LineId Id="61" Count="0" />
+      <LineId Id="271" Count="0" />
+      <LineId Id="169" Count="0" />
+      <LineId Id="63" Count="0" />
+      <LineId Id="282" Count="2" />
+      <LineId Id="67" Count="11" />
+      <LineId Id="292" Count="3" />
+      <LineId Id="300" Count="0" />
+      <LineId Id="297" Count="1" />
+      <LineId Id="79" Count="0" />
+      <LineId Id="291" Count="0" />
+      <LineId Id="289" Count="0" />
+      <LineId Id="80" Count="11" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
